@@ -1,0 +1,19 @@
+{
+  "name": "proxy",
+  "version": "1.0.0",
+  "description": "",
+  "main": "proxy.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yashonalbert/proxy.git"
+  },
+  "author": "yashonalbert",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/yashonalbert/proxy/issues"
+  },
+  "homepage": "https://github.com/yashonalbert/proxy#readme"
+}
