@@ -1,24 +1,34 @@
 module.exports = requestParse;
 
-function requestParse(data) {
-  const request = {
-    headers: {},
-  };
-  let state = 'method';
-  let key = '';
-  let value = [];
+let state = 'method';
+
+function requestParse(data, state, requests, cache, key, value) {
   for (let codePoint of data) {
     if (state === 'method') {
       if (codePoint === 32) {
-        request.method = Buffer.from(value);
-        state = 'url';
+        cache.method = Buffer.from(value);
+        state = 'urlSchema';
         value = [];
         continue;
       }
     }
-    if (state === 'url') {
+    if (state === 'urlSchema') {
+      if (value.includes(47)) {
+        state = 'urlHostname';
+        value = [];
+        continue;
+      }
+    }
+    if (state === 'urlHostname') {
+      if (codePoint === 47) {
+        state = 'urlPath';
+        value = [47];
+        continue;
+      }
+    }
+    if (state === 'urlPath') {
       if (codePoint === 32) {
-        request.url = Buffer.from(value);
+        cache.url = Buffer.from(value);
         state = 'httpVersion';
         value = [];
         continue;
@@ -30,7 +40,7 @@ function requestParse(data) {
         continue;
       }
       if (codePoint === 13) {
-        request.httpVersion = Buffer.from(value);
+        cache.httpVersion = Buffer.from(value);
         value = [];
         continue;
       }
@@ -41,23 +51,48 @@ function requestParse(data) {
     }
     if (state === 'headersKey') {
       if (codePoint === 58) {
-        key = Buffer.from(value).toString().toLowerCase();
-        continue;
+        key = Buffer.from(value).toString()
+        if (key === 'Proxy-Connection') {
+          key = 'Connection';
+        }
+        cache.rawHeaders.push(Buffer.from(key));
+        key = key.toLowerCase();
       }
       if (codePoint === 32) {
-        state = 'headersValue';
-        value = [];
+        if (value.includes(58)) {
+          state = 'headersValue';
+          value = [];
+          continue;
+        }
+        requests.push(cache);
+        cache = {
+          rawHeaders: [],
+          headers: {},
+        };
+        cache.method = Buffer.from(value);
+        state = 'urlSchema';
         continue;
       }
       if (codePoint === 10) {
-        state = 'body';
-        value = [];
+        if (cache.method.toString() === 'GET') {
+          requests.push(cache);
+          cache = {
+            rawHeaders: [],
+            headers: {},
+          };
+          state = 'method';
+          value = [];
+        } else {
+          state = 'body';
+          value = [];
+        }
         continue;
       }
     }
     if (state === 'headersValue') {
       if (codePoint === 13) {
-        request.headers[key] = Buffer.from(value);
+        cache.rawHeaders.push(Buffer.from(value));
+        cache.headers[key] = Buffer.from(value);
         key = '';
         value = [];
         continue;
@@ -69,13 +104,21 @@ function requestParse(data) {
     }
     if (state === 'body') {
       if (codePoint === 13) {
-        request.body = Buffer.from(value);
+        cache.body = Buffer.from(value);
+        value = [];
+        continue;
+      }
+      if (codePoint === 10) {
+        requests.push(cache);
+        cache = {
+          rawHeaders: [],
+          headers: {},
+        };
+        state = 'method';
         continue;
       }
     }
     value.push(codePoint);
   }
-  return request;
+  return { state, requests, cache, key, value };
 }
-
-
