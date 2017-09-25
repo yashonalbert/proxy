@@ -5,44 +5,44 @@ function requestBufferify(request) {
   for (let codePoint of request.method) {
     array.push(codePoint);
   }
-  array.push(32);
+  array.push(' '.charCodeAt(0));
   for (let codePoint of request.url) {
     array.push(codePoint);
   }
-  array.push(32);
-  array.push(72);
-  array.push(84);
-  array.push(84);
-  array.push(80);
-  array.push(47);
+  array.push(' '.charCodeAt(0));
+  array.push('H'.charCodeAt(0));
+  array.push('T'.charCodeAt(0));
+  array.push('T'.charCodeAt(0));
+  array.push('P'.charCodeAt(0));
+  array.push('/'.charCodeAt(0));
   for (let codePoint of request.httpVersion) {
     array.push(codePoint);
   }
-  array.push(13);
-  array.push(10);
+  array.push('\r'.charCodeAt(0));
+  array.push('\n'.charCodeAt(0));
   request.rawHeaders.forEach((item, index) => {
     if ( index % 2 === 0 ) {
       for (let codePoint of item) {
         array.push(codePoint);
       }
-      array.push(58);
-      array.push(32);
+      array.push(':'.charCodeAt(0));
+      array.push(' '.charCodeAt(0));
     } else {
       for (let codePoint of item) {
         array.push(codePoint);
       }
-      array.push(13);
-      array.push(10);
-      array.push(13);
-      array.push(10);
+      array.push('\r'.charCodeAt(0));
+      array.push('\n'.charCodeAt(0));
     }
   });
   if (request.body) {
+    array.push('\r'.charCodeAt(0));
+    array.push('\n'.charCodeAt(0));
     for (let codePoint of request.body) {
       array.push(codePoint);
     }
-    array.push(13);
-    array.push(10);
+    array.push('\r'.charCodeAt(0));
+    array.push('\n'.charCodeAt(0));
   }
   return Buffer.from(array);
 }
