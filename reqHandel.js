@@ -24,10 +24,9 @@ class ReqHandel {
     this.cache = parse.cache;
     this.key = parse.key;
     this.value = parse.value;
-    console.log(parse)
     if (!this.queueState) {
       this.queueState = true;
-      this.requestQueue();
+      this.connectQueue();
     }
   }
 
@@ -35,7 +34,7 @@ class ReqHandel {
     return requestBufferify(data);
   }
 
-  requestQueue() {
+  connectQueue() {
     const that = this;
     if (this.requests.length > 0) {
       this.host = _.first(this.requests).headers.host;
@@ -45,28 +44,33 @@ class ReqHandel {
           ? '127.0.0.1'
           : _.first(this.host.toString().split(':'))
         : this.host.toString();
-      console.log(hostname);
-      console.log(port);
       this.client.connect(port, hostname, function () {
         console.log('Connected to: ' + that.host.toString());
-        console.log(that.requestBufferify(_.first(that.requests)).toString());
-        this.write(that.requestBufferify(_.first(that.requests)));
-        // that.requests.shift();
-        // this.requests.forEach((request) => {
-        //   if (request.headers.host !== this.host) {
-        //     this.host = request.headers.host
-        //   } else {
-        //     this.requests.shift();
-        //     console.log(this.requests)
-        //     // client.write(requestBufferify(request));
-        //   }
-        //   requestQueue();
-        // });
+        that.requestQueue();
       });
     } else {
       this.queueState = false;
-      console.log(123)
       return;
+    }
+  }
+
+  requestQueue() {
+    const that = this;
+    if (!_.first(that.requests).headers.host.equals(that.host)) {
+      that.host = _.first(that.requests).headers.host
+      that.queueState = true;
+      that.connectQueue();
+    } else {
+      that.client.write(requestBufferify(_.first(that.requests)));
+      that.requests.shift();
+      setTimeout(function () {
+        if (that.requests.length > 0) {
+          // console.log(that.requests);
+          that.requestQueue();
+        } else {
+          that.queueState = false;
+        }
+      }, 500);
     }
   }
 }

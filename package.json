@@ -17,6 +17,6 @@
   },
   "homepage": "https://github.com/yashonalbert/proxy#readme",
   "dependencies": {
-    "lodash": "^4.17.4",
+    "lodash": "^4.17.4"
   }
 }

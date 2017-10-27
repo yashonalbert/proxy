@@ -44,5 +44,7 @@ function requestBufferify(request) {
     array.push('\r'.charCodeAt(0));
     array.push('\n'.charCodeAt(0));
   }
+  array.push('\r'.charCodeAt(0));
+  array.push('\n'.charCodeAt(0));
   return Buffer.from(array);
 }
