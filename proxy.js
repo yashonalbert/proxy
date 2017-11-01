@@ -9,10 +9,10 @@ class HTTPParser {
     this.on('http', () => {});
     this.data = Buffer.from([]);
     this.request = {
-        method: undefined,
-        url: undefined,
-        version: undefined,
-        headers: {},
+      method: undefined,
+      url: undefined,
+      version: undefined,
+      headers: {},
     }
   }
 
@@ -71,8 +71,7 @@ class HTTPParser {
         continue;
       }
       if (this.status === 'headersKey' && this.data[readTo] === '\r'.charCodeAt(0)) {
-        const request = this.data;
-        this.requestCallback(this.request.headers.host, conn => conn.write(request.slice(0, readTo + 2)));
+        this.requestCallback(this.request.headers.host, this.data.slice(0, readTo + 2));
         if (this.request.method.toString() === 'GET') {
           this.setStatus('method');
           readFrom = readTo + 2;
@@ -85,22 +84,29 @@ class HTTPParser {
         }
       }
       if (this.status === 'body') {
-        // if (this.request.headers['transfer-encoding']) {
-        //   this.chunked = 0;
-        //   if (this.chunked === 0) {
-        //     if (this.data[readTo] === '\r'.charCodeAt(0)) {
-        //       this.chunked = parseInt(this.data.slice(readFrom, readTo).toString(), 16);
-        //       readFrom = readTo + 2;
-        //     }
-        //   }
-        //   if (readTo === readFrom + this.chunked) {
-
-        //   }
-
-        // } else
-        if (this.request.headers['content-length']) {
+        if (this.request.headers['transfer-encoding']) {
+          this.chunked = {
+            sign: NaN,
+            dataLength: NaN,
+          };
+          if (this.chunked.dataLength === NaN) {
+            if (this.data[readTo] === '\r'.charCodeAt(0)) {
+              this.chunked.sign = readTo - readFrom;
+              this.chunked.dataLength = parseInt(this.data.slice(readFrom, readTo).toString(), 16);
+              readFrom = readTo + 2;
+            }
+          }
+          if (readTo === readFrom + this.chunked) {
+            this.bodyCallback(this.data.slice(readFrom - 2, readTo + 2));
+            readFrom = readTo + 2;
+            if (this.chunked.dataLength === 0) {
+              this.chunked.sign = NaN;
+              this.chunked.dataLength = NaN;
+            }
+          }
+        } else if (this.request.headers['content-length']) {
           if (readTo === readFrom + Number(this.request.headers['content-length'].toString()) - 1) {
-            this.request.body = this.data.slice(readFrom, readTo + 1);
+            this.bodyCallback(this.data.slice(readFrom, readTo + 3));
             this.setStatus('method');
             readFrom = readTo + 3;
             break;
@@ -118,31 +124,36 @@ net.createServer(function (socket) {
   let parser = new HTTPParser();
   let conn = new net.Socket();
   let client = false;
-  parser.on('request', (host, callback) => {
-    console.log(client)
-    if (!client) {
-      const port = host.toString().includes(':') ? Number(host.toString().split(':').pop()) : 80;
-      const hostname = (port === 80)
-        ? host.toString() : (host.toString().split(':').shift() === 'localhost')
-          ? '127.0.0.1' : host.toString().split(':').shift();
-      conn.connect(port, hostname, () => {
-        console.log('CONNECTED TO: ' + hostname + ':' + port);
-        client = true;
-        callback(conn);
-      });
-    } else {
-      callback(conn);
+  let connPool = [];
+  function connect() {
+    if (connPool.length > 0) {
+      const data = connPool.shift();
+      if (Buffer.isBuffer(data)) {
+        conn.write(data);
+      } else {
+        if (!client) {
+          const { host, headers } = data;
+          const port = host.toString().includes(':') ? Number(host.toString().split(':').pop()) : 80;
+          const hostname = (port === 80)
+            ? host.toString() : (host.toString().split(':').shift() === 'localhost')
+              ? '127.0.0.1' : host.toString().split(':').shift();
+          conn.connect(port, hostname, () => {
+            client = true;
+            conn.write(headers)
+          });
+        } else {
+          conn.write(headers)
+        }
+      }
     }
-  })
-  parser.on('body', (callback) => {
-  })
-  // .on('error', () => {
-  // });
+  }
+  const queue = setInterval(connect, 1000);
+  parser.on('request', (host, headers) => connPool.push({ host, headers }));
+  parser.on('body', (body) => connPool.push(body));
+  // parser.on('error', () => {});
   socket.on('data', parser.parse.bind(parser));
+  socket.on('close', () => clearInterval(queue));
   conn.on('data', (data) => socket.write(data));
-  conn.on('close', () => {
-    client = false;
-    console.log('close')
-  });
+  conn.on('close', () => client = false);
 }).listen(PORT, HOST, () => console.log('Server listening on ' + HOST + ':' + PORT));
 
