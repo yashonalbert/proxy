@@ -147,7 +147,7 @@ net.createServer(function (socket) {
       }
     }
   }
-  const queue = setInterval(connect, 1000);
+  const queue = setInterval(connect, 15);
   parser.on('request', (host, headers) => connPool.push({ host, headers }));
   parser.on('body', (body) => connPool.push(body));
   // parser.on('error', () => {});
